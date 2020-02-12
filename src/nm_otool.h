@@ -15,5 +15,12 @@
 
 # include <libft.h>
 # include <sys/mman.h>
+# include <fcntl.h>
+# include <sys/stat.h>
+
+typedef struct		s_data
+{
+	char            *file;
+}					t_data;
 
 #endif
