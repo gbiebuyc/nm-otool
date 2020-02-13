@@ -17,6 +17,8 @@
 # include <sys/mman.h>
 # include <fcntl.h>
 # include <sys/stat.h>
+# include <mach-o/loader.h>
+# include <mach-o/nlist.h>
 
 typedef struct		s_data
 {
