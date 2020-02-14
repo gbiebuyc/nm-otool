@@ -29,6 +29,12 @@ typedef struct		s_data
 	uint32_t		sizeof_header;
 	bool			is_big_endian;
 	bool			is_64bit;
+	void			*sym;
+	uint64_t		sym_value;
+	char			sym_type;
+	char			*sym_strtab;
+	char			*sym_str;
+
 }					t_data;
 
 bool				*is_big_endian();

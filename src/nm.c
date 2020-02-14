@@ -76,21 +76,43 @@ char	get_type_char(char type)
 	return (c);
 }
 
+int		parse_symbol(t_data *d)
+{
+	struct nlist	*sym32;
+	struct nlist_64	*sym64;
+
+	if (d->is_64bit)
+	{
+		sym64 = d->sym;
+		d->sym_str = d->sym_strtab + swap32(sym64->n_un.n_strx);
+		d->sym_type = sym64->n_type;
+		d->sym_value = swap64(sym64->n_value);
+		d->sym = sym64 + 1;
+	}
+	else
+	{
+		sym32 = d->sym;
+		d->sym_str = d->sym_strtab + swap32(sym32->n_un.n_strx);
+		d->sym_type = sym32->n_type;
+		d->sym_value = swap32(sym32->n_value);
+		d->sym = sym32 + 1;
+	}
+	return (1);
+}
+
 void	parse_symtab_command(struct symtab_command *cmd, void *file, t_data *d)
 {
 	uint32_t	nsyms;
-	struct nlist   *symbol;
 	char		*strings;
 
 	nsyms = swap32(cmd->nsyms);
-	symbol = file + swap32(cmd->symoff);
-	symbol--;
-	strings = (char*)file + swap32(cmd->stroff);
-	while (nsyms-- && symbol++)
+	d->sym = file + swap32(cmd->symoff);
+	d->sym_strtab = file + swap32(cmd->stroff);
+	while (nsyms-- && parse_symbol(d))
 	{
-		if (symbol->n_type & N_STAB)
+		if (d->sym_type & N_STAB)
 			continue;
-		ft_printf("%0*llx %c %01b %s\n", d->is_64bit ? 16 : 8, swap32(symbol->n_value), get_type_char(symbol->n_type), symbol->n_type, strings + swap32(symbol->n_un.n_strx));
+		ft_printf("%0*llx %c %01b %s\n", d->is_64bit ? 16 : 8, d->sym_value, get_type_char(d->sym_type), d->sym_type, d->sym_str);
 	}
 }
 
