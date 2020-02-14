@@ -24,10 +24,7 @@
 typedef struct		s_data
 {
 	void            *file;
-	uint32_t		magic;
 	uint32_t		ncmds;
-	uint32_t		sizeof_header;
-	bool			is_big_endian;
 	bool			is_64bit;
 	void			*sym;
 	uint64_t		sym_value;
