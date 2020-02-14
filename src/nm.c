@@ -26,37 +26,113 @@
 // 	}
 // }
 
-void	parse_symtab_command(struct symtab_command *cmd, void *file)
+// int		get_nsects(t_data *d, void *cmd)
+// {
+// 	int nsects;
+
+// 	nsects = d->is_64bit ? ((struct segment_command_64*)cmd)->nsects :
+// 		((struct segment_command*)cmd)->nsects;
+// 	return (d->is_big_endian ? NXSwapInt(nsects) : nsects);
+// }
+
+// char	*get_section_name(t_data *d, int needle)
+// {
+// 	struct load_command	*cmd;
+// 	int					i_sect;
+// 	int					ncmds;
+// 	int					nsects;
+
+// 	cmd = d->file + d->sizeof_header;
+// 	i_sect = 1;
+// 	ncmds = d->ncmds;
+// 	while (ncmds--)
+// 	{
+// 		nsects = get_nsects(d, cmd);
+// 		while (nsects--)
+// 		{
+// 			i_sect++;
+// 		}
+// 		cmd = (char*)cmd + cmd->cmdsize;
+// 	}
+// }
+
+size_t	get_sizeof_header(bool is_64bit)
+{
+	return (is_64bit ? sizeof(struct mach_header_64) :
+		sizeof(struct mach_header));
+}
+
+char	get_type_char(char type)
+{
+	char c;
+
+	c = ' ';
+	if (type & N_SECT)
+		c = 't';
+	else if ((type & N_TYPE) == N_UNDF)
+		c = 'U';
+	if (type & N_EXT)
+		c = ft_toupper(c);
+	return (c);
+}
+
+void	parse_symtab_command(struct symtab_command *cmd, void *file, t_data *d)
 {
 	uint32_t	nsyms;
-	struct nlist_64   *symbols;
+	struct nlist   *symbol;
 	char		*strings;
 
-	nsyms = cmd->nsyms;
-	symbols = (char*)file + cmd->symoff;
-	strings = (char*)file + cmd->stroff;
-	while (nsyms--)
+	nsyms = swap32(cmd->nsyms);
+	symbol = file + swap32(cmd->symoff);
+	symbol--;
+	strings = (char*)file + swap32(cmd->stroff);
+	while (nsyms-- && symbol++)
 	{
-		ft_printf("%016llx %s\n", symbols->n_value, strings + symbols->n_un.n_strx);
-		symbols++;
+		if (symbol->n_type & N_STAB)
+			continue;
+		ft_printf("%0*llx %c %01b %s\n", d->is_64bit ? 16 : 8, swap32(symbol->n_value), get_type_char(symbol->n_type), symbol->n_type, strings + swap32(symbol->n_un.n_strx));
 	}
 }
 
-int parse_commands(void *file, uint32_t ncmds)
+int parse_commands(t_data *d)
 {
 	struct load_command	*cmd;
 	void				*ptr;
+	int		i;
 
-	ptr = file + sizeof(struct mach_header_64);
-	while (ncmds--)
+	ptr = d->file + get_sizeof_header(d->is_64bit);
+	i = 0;
+	while (i < d->ncmds)
 	{
 		cmd = (struct load_command*)ptr;
 		// ft_printf("cmd size: %d\n", cmd->cmdsize);
-		if (cmd->cmd == LC_SYMTAB)
-			parse_symtab_command(cmd, file);
-		ptr = (char*)ptr + cmd->cmdsize;
+		if (swap32(cmd->cmd) == LC_SYMTAB)
+			parse_symtab_command((void*)cmd, d->file, d);
+		ptr = (char*)ptr + swap32(cmd->cmdsize);
+		i++;
 	}
 	return (0);
+}
+
+bool	parse_header(t_data *d)
+{
+	struct mach_header	*header;
+
+	header = (struct mach_header*)d->file;
+	if (header->magic == MH_MAGIC)
+		d->is_64bit = false;
+	else if (header->magic == MH_MAGIC_64)
+		d->is_64bit = true;
+	else if (header->magic == MH_CIGAM)
+		*is_big_endian() = true;
+	else if (header->magic == MH_CIGAM_64)
+		d->is_64bit =
+			*is_big_endian() = true;
+	else
+		return (false);
+	// d->magic = header->magic;
+	d->ncmds = swap32(header->ncmds);
+	return (true);
 }
 
 int func(t_data *d, char **av)
@@ -64,6 +140,8 @@ int func(t_data *d, char **av)
 	int						fd;
 	struct stat				file_stat;
 	struct mach_header_64	*header;
+	uint32_t	magic;
+	uint32_t	ncmds;
 
 	if (!av[1])
 		av[1] = "a.out";
@@ -76,10 +154,11 @@ int func(t_data *d, char **av)
 	d->file = mmap(0, file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_printf("mmap error\n"));
-	header = (struct mach_header_64*)d->file;
-	if (header->magic != MH_MAGIC_64)
+	if (!parse_header(d))
 		return (ft_printf("Invalid file: %s\n", av[1]));
-	parse_commands(d->file, header->ncmds);
+	parse_commands(d);
+	// ft_printf("%llx\n", swap64(((uint64_t)MH_MAGIC << 32) | (uint64_t)MH_MAGIC));
+	// ft_printf("%llx\n", NXSwapLongLong(((uint64_t)MH_MAGIC << 32) | (uint64_t)MH_MAGIC));
 	return (0);
 }
 

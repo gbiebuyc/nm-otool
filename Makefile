@@ -11,7 +11,8 @@
 # **************************************************************************** #
 
 NAME = ft_nm
-SRC = src/nm.c
+SRC = src/nm.c \
+	src/endianness.c
 OBJ = $(SRC:.c=.o)
 CFLAGS = -I ./libft -g # -Wall -Wextra -Werror
 LDFLAGS = -L ./libft -lft

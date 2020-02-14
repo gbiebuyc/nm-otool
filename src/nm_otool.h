@@ -14,6 +14,7 @@
 # define NM_OTOOL_H
 
 # include <libft.h>
+# include <stddef.h>
 # include <sys/mman.h>
 # include <fcntl.h>
 # include <sys/stat.h>
@@ -22,7 +23,17 @@
 
 typedef struct		s_data
 {
-	char            *file;
+	void            *file;
+	uint32_t		magic;
+	uint32_t		ncmds;
+	uint32_t		sizeof_header;
+	bool			is_big_endian;
+	bool			is_64bit;
 }					t_data;
+
+bool				*is_big_endian();
+int16_t				swap16(int16_t n);
+int32_t				swap32(int32_t n);
+int64_t				swap64(int64_t n);
 
 #endif
