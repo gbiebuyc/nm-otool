@@ -67,13 +67,12 @@ char	get_type_char(t_data *d)
 	char c;
 
 	c = ' ';
-	if (d->sym_type & N_SECT)
-	{
-		if (!(c = d->sect_chars[d->sym_sectnum]))
-			c = ' ';
-	}
+	if ((d->sym_type & N_SECT) && d->sect_chars[d->sym_sectnum])
+		c = d->sect_chars[d->sym_sectnum];
+	else if ((d->sym_type & N_TYPE) == N_ABS)
+		c = 'a';
 	else if ((d->sym_type & N_TYPE) == N_UNDF)
-		c = 'U';
+		c = 'u';
 	if (d->sym_type & N_EXT)
 		c = ft_toupper(c);
 	return (c);
@@ -114,7 +113,12 @@ void	print_symbols(t_data *d)
 	{
 		if (d->sym_type & N_STAB)
 			continue;
-		ft_printf("%0*llx %c %s\n", d->is_64bit ? 16 : 8, d->sym_value, get_type_char(d), d->sym_str);
+		if ((d->sym_type & N_TYPE) == N_UNDF)
+			ft_printf("%*s", d->is_64bit ? 16 : 8, "");
+		else
+			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym_value);
+		// ft_printf(" %b", d->sym_type);
+		ft_printf(" %c %s\n", get_type_char(d), d->sym_str);
 	}
 }
 
