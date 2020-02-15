@@ -26,11 +26,12 @@ typedef struct		s_data
 	void            *file;
 	uint32_t		ncmds;
 	bool			is_64bit;
-	void			*sym;
 	uint64_t		sym_value;
 	char			sym_type;
 	char			*sym_strtab;
 	char			*sym_str;
+	uint32_t		nsyms;
+	void			*symbols;
 
 }					t_data;
 

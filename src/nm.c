@@ -76,43 +76,93 @@ char	get_type_char(char type)
 	return (c);
 }
 
-int		parse_symbol(t_data *d)
+int		parse_symbol(t_data *d, int i)
 {
 	struct nlist	*sym32;
 	struct nlist_64	*sym64;
 
+	if (i >= d->nsyms)
+		return (0);
 	if (d->is_64bit)
 	{
-		sym64 = d->sym;
+		sym64 = ((struct nlist_64*)d->symbols) + i;
 		d->sym_str = d->sym_strtab + swap32(sym64->n_un.n_strx);
 		d->sym_type = sym64->n_type;
 		d->sym_value = swap64(sym64->n_value);
-		d->sym = sym64 + 1;
 	}
 	else
 	{
-		sym32 = d->sym;
+		sym32 = ((struct nlist*)d->symbols) + i;
 		d->sym_str = d->sym_strtab + swap32(sym32->n_un.n_strx);
 		d->sym_type = sym32->n_type;
 		d->sym_value = swap32(sym32->n_value);
-		d->sym = sym32 + 1;
 	}
 	return (1);
 }
 
-void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
+void	print_symbols(t_data *d)
 {
-	uint32_t	nsyms;
+	int i;
 
-	nsyms = swap32(cmd->nsyms);
-	d->sym = d->file + swap32(cmd->symoff);
-	d->sym_strtab = d->file + swap32(cmd->stroff);
-	while (nsyms-- && parse_symbol(d))
+	i = -1;
+	while (parse_symbol(d, ++i))
 	{
 		if (d->sym_type & N_STAB)
 			continue;
 		ft_printf("%0*llx %c %01b %s\n", d->is_64bit ? 16 : 8, d->sym_value, get_type_char(d->sym_type), d->sym_type, d->sym_str);
 	}
+}
+
+void	swap_symbols(t_data *d, int i, int j)
+{
+	struct nlist	*sym32;
+	struct nlist_64	*sym64;
+	struct nlist	tmp32;
+	struct nlist_64	tmp64;
+
+	if (d->is_64bit)
+	{
+		sym64 = d->symbols;
+		tmp64 = sym64[i];
+		sym64[i] = sym64[j];
+		sym64[j] = tmp64;
+	}
+	else
+	{
+		sym32 = d->symbols;
+		tmp32 = sym32[i];
+		sym32[i] = sym32[j];
+		sym32[j] = tmp32;
+	}
+}
+
+void	sort_symbols(t_data *d)
+{
+	int		i;
+	char	*str;
+
+	i = 0;
+	while(parse_symbol(d, i + 1))
+	{
+		str = d->sym_str;
+		parse_symbol(d, i);
+		if (ft_strcmp(d->sym_str, str) > 0)
+		{
+			swap_symbols(d, i, i + 1);
+			i = 0;
+		}
+		else
+			i++;
+	}
+}
+
+void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
+{
+	if (d->symbols)
+		return ;
+	d->nsyms = swap32(cmd->nsyms);
+	d->symbols = d->file + swap32(cmd->symoff);
+	d->sym_strtab = d->file + swap32(cmd->stroff);
 }
 
 int parse_commands(t_data *d, struct load_command *cmd, int ncmds)
@@ -156,12 +206,14 @@ int func(t_data *d, char **av)
 		return (ft_printf("fstat error: %s\n", av[1]));
 	if (file_stat.st_size == 0)
 		return (ft_printf("Invalid file: %s\n", av[1]));
-	d->file = mmap(0, file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	d->file = mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_printf("mmap error\n"));
 	if (!parse_header(d, d->file))
 		return (ft_printf("Invalid file: %s\n", av[1]));
 	parse_commands(d, d->file + sizeof_header(d), d->ncmds);
+	sort_symbols(d);
+	print_symbols(d);
 	return (0);
 }
 
