@@ -148,20 +148,23 @@ void	swap_symbols(t_data *d, int i, int j)
 void	sort_symbols(t_data *d)
 {
 	int		i;
+	int		j;
 	char	*str;
 
-	i = 0;
-	while(parse_symbol(d, i + 1))
+	i = -1;
+	while(++i < d->nsyms - 1)
 	{
-		str = d->sym_str;
-		parse_symbol(d, i);
-		if (ft_strcmp(d->sym_str, str) > 0)
+		j = -1;
+		while (++j < d->nsyms - i - 1)
 		{
-			swap_symbols(d, i, i + 1);
-			i = 0;
+			parse_symbol(d, j);
+			if (d->sym_type & N_STAB)
+				continue ;
+			str = d->sym_str;
+			parse_symbol(d, j + 1);
+			if (ft_strcmp(str, d->sym_str) > 0)
+				swap_symbols(d, j, j + 1);
 		}
-		else
-			i++;
 	}
 }
 
@@ -200,7 +203,7 @@ void	parse_segment_command(t_data *d, struct segment_command *cmd)
 
 void	parse_segment_command_64(t_data *d, struct segment_command_64 *cmd)
 {
-	parse_sections(d, (void*)(cmd + 1), swap64(cmd->nsects));
+	parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects));
 }
 
 int parse_commands(t_data *d, struct load_command *cmd, int ncmds)
