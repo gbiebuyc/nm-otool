@@ -62,16 +62,19 @@ size_t	sizeof_header(t_data *d)
 		sizeof(struct mach_header));
 }
 
-char	get_type_char(char type)
+char	get_type_char(t_data *d)
 {
 	char c;
 
 	c = ' ';
-	if (type & N_SECT)
-		c = 't';
-	else if ((type & N_TYPE) == N_UNDF)
+	if (d->sym_type & N_SECT)
+	{
+		if (!(c = d->sect_chars[d->sym_sectnum]))
+			c = ' ';
+	}
+	else if ((d->sym_type & N_TYPE) == N_UNDF)
 		c = 'U';
-	if (type & N_EXT)
+	if (d->sym_type & N_EXT)
 		c = ft_toupper(c);
 	return (c);
 }
@@ -89,6 +92,7 @@ int		parse_symbol(t_data *d, int i)
 		d->sym_str = d->sym_strtab + swap32(sym64->n_un.n_strx);
 		d->sym_type = sym64->n_type;
 		d->sym_value = swap64(sym64->n_value);
+		d->sym_sectnum = sym64->n_sect;
 	}
 	else
 	{
@@ -96,6 +100,7 @@ int		parse_symbol(t_data *d, int i)
 		d->sym_str = d->sym_strtab + swap32(sym32->n_un.n_strx);
 		d->sym_type = sym32->n_type;
 		d->sym_value = swap32(sym32->n_value);
+		d->sym_sectnum = sym32->n_sect;
 	}
 	return (1);
 }
@@ -109,7 +114,7 @@ void	print_symbols(t_data *d)
 	{
 		if (d->sym_type & N_STAB)
 			continue;
-		ft_printf("%0*llx %c %01b %s\n", d->is_64bit ? 16 : 8, d->sym_value, get_type_char(d->sym_type), d->sym_type, d->sym_str);
+		ft_printf("%0*llx %c %s\n", d->is_64bit ? 16 : 8, d->sym_value, get_type_char(d), d->sym_str);
 	}
 }
 
@@ -165,12 +170,43 @@ void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
 	d->sym_strtab = d->file + swap32(cmd->stroff);
 }
 
+void	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
+{
+	while (nsects--)
+	{
+		d->i_sect++;
+		if (ft_strcmp(sect->sectname, SECT_TEXT) == 0)
+			d->sect_chars[d->i_sect] = 't';
+		else if (ft_strcmp(sect->sectname, SECT_DATA) == 0)
+			d->sect_chars[d->i_sect] = 'd';
+		else if (ft_strcmp(sect->sectname, SECT_BSS) == 0)
+			d->sect_chars[d->i_sect] = 'b';
+		else
+			d->sect_chars[d->i_sect] = 's';
+		sect = (void*)sect + (d->is_64bit ? sizeof(struct section_64) :
+			sizeof(struct section));
+	}
+}
+
+void	parse_segment_command(t_data *d, void *cmd)
+{
+	struct segment_command		*cmd32;
+	struct segment_command_64	*cmd64;
+
+	if (d->is_64bit && (cmd64 = cmd))
+		parse_sections(d, (void*)(cmd64 + 1), swap64(cmd64->nsects));
+	else if ((cmd32 = cmd))
+		parse_sections(d, (void*)(cmd32 + 1), swap32(cmd32->nsects));
+}
+
 int parse_commands(t_data *d, struct load_command *cmd, int ncmds)
 {
 	while (ncmds--)
 	{
 		if (swap32(cmd->cmd) == LC_SYMTAB)
 			parse_symtab_command(d, (void*)cmd);
+		else if (swap32(cmd->cmd) == LC_SEGMENT)
+			parse_segment_command(d, (void*)cmd);
 		cmd = (void*)cmd + swap32(cmd->cmdsize);
 	}
 	return (0);

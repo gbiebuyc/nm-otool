@@ -30,8 +30,11 @@ typedef struct		s_data
 	char			sym_type;
 	char			*sym_strtab;
 	char			*sym_str;
+	unsigned char	sym_sectnum;
 	uint32_t		nsyms;
 	void			*symbols;
+	size_t			i_sect;
+	char			sect_chars[256];
 
 }					t_data;
 
