@@ -163,11 +163,26 @@ bool	sort_symbols(t_data *d)
 	return (true);
 }
 
+bool	check_section_valid(t_data *d,
+			struct section *sect32, struct section_64 *sect64)
+{
+	if (d->is_64bit)
+	{
+		if (swap32(sect64->offset) + swap64(sect64->size) > d->file_stat.st_size)
+			return (false);
+	}
+	else if (swap32(sect32->offset) + swap32(sect32->size) > d->file_stat.st_size)
+		return (false);
+	return (true);
+}
+
 bool	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 {
 	while (nsects--)
 	{
 		d->i_sect++;
+		if (!check_section_valid(d, sect, (void*)sect))
+			return (false);
 		if (ft_strcmp(sect->sectname, SECT_TEXT) == 0)
 			d->sect_chars[d->i_sect] = 't';
 		else if (ft_strcmp(sect->sectname, SECT_DATA) == 0)
