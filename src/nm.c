@@ -163,7 +163,7 @@ bool	sort_symbols(t_data *d)
 	return (true);
 }
 
-void	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
+bool	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 {
 	while (nsects--)
 	{
@@ -180,16 +180,17 @@ void	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 		sect = (void*)sect + (d->is_64bit ? sizeof(struct section_64) :
 			sizeof(struct section));
 	}
+	return (true);
 }
 
-void	parse_segment_command(t_data *d, struct segment_command *cmd)
+bool	parse_segment_command(t_data *d, struct segment_command *cmd)
 {
-	parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects));
+	return (parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects)));
 }
 
-void	parse_segment_command_64(t_data *d, struct segment_command_64 *cmd)
+bool	parse_segment_command_64(t_data *d, struct segment_command_64 *cmd)
 {
-	parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects));
+	return (parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects)));
 }
 
 void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
@@ -199,19 +200,30 @@ void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
 	d->sym64 = d->file + swap32(cmd->symoff);
 	d->nsyms = swap32(cmd->nsyms);
 	d->strsize = swap32(cmd->strsize);
+	// ft_printf("addr: %llx", (void*)&cmd->nsyms - d->file);
 }
 
 bool	parse_commands(t_data *d, struct load_command *cmd, int ncmds)
 {
 	while (ncmds--)
 	{
-		if (swap32(cmd->cmd) == LC_SYMTAB)
+		cmd->cmd = swap32(cmd->cmd);
+		cmd->cmdsize = swap32(cmd->cmdsize);
+		if (((void*)cmd + cmd->cmdsize) > (d->file + d->file_stat.st_size))
+			return (false);
+		if (cmd->cmd == LC_SYMTAB)
 			parse_symtab_command(d, (void*)cmd);
-		else if (swap32(cmd->cmd) == LC_SEGMENT)
-			parse_segment_command(d, (void*)cmd);
-		else if (swap32(cmd->cmd) == LC_SEGMENT_64)
-			parse_segment_command_64(d, (void*)cmd);
-		cmd = (void*)cmd + swap32(cmd->cmdsize);
+		else if (cmd->cmd == LC_SEGMENT)
+		{
+			if (!parse_segment_command(d, (void*)cmd))
+				return (false);
+		}
+		else if (cmd->cmd == LC_SEGMENT_64)
+		{
+			if (!parse_segment_command_64(d, (void*)cmd))
+				return (false);
+		}
+		cmd = (void*)cmd + cmd->cmdsize;
 	}
 	return (true);
 }
@@ -236,17 +248,16 @@ bool	parse_header(t_data *d, struct mach_header *header)
 int func(t_data *d, char **av)
 {
 	int			fd;
-	struct stat	file_stat;
 
 	if (!av[1])
 		av[1] = "a.out";
 	if ((fd = open(av[1], O_RDONLY)) < 0)
 		return (ft_dprintf(STDERR_FILENO, "open error: %s\n", av[1]));
-	if (fstat(fd, &file_stat) != 0)
+	if (fstat(fd, &d->file_stat) != 0)
 		return (ft_dprintf(STDERR_FILENO, "fstat error: %s\n", av[1]));
-	if (file_stat.st_size == 0)
+	if (d->file_stat.st_size == 0)
 		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", av[1]));
-	d->file = mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+	d->file = mmap(0, d->file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_dprintf(STDERR_FILENO, "mmap error\n"));
 	if (!parse_header(d, d->file))

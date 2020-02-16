@@ -24,6 +24,7 @@
 typedef struct				s_data
 {
 	void            		*file;
+	struct stat				file_stat;
 	uint32_t				ncmds;
 	uint32_t				nsyms;
 	bool					is_64bit;
