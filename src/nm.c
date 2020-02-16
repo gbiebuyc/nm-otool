@@ -170,9 +170,16 @@ bool	check_section_valid(t_data *d,
 	{
 		if (swap32(sect64->offset) + swap64(sect64->size) > d->file_stat.st_size)
 			return (false);
+		if ((void*)(sect64 + 1) >= d->file + d->file_stat.st_size)
+			return (false);
 	}
-	else if (swap32(sect32->offset) + swap32(sect32->size) > d->file_stat.st_size)
-		return (false);
+	else
+	{
+		if (swap32(sect32->offset) + swap32(sect32->size) > d->file_stat.st_size)
+			return (false);
+		if ((void*)(sect64 + 1) >= d->file + d->file_stat.st_size)
+			return (false);
+	}
 	return (true);
 }
 
@@ -208,14 +215,18 @@ bool	parse_segment_command_64(t_data *d, struct segment_command_64 *cmd)
 	return (parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects)));
 }
 
-void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
+bool	parse_symtab_command(t_data *d, struct symtab_command *cmd)
 {
+	if (swap32(cmd->stroff) + swap32(cmd->strsize) > d->file_stat.st_size)
+		return (false);
+	if (swap32(cmd->symoff) + swap32(cmd->nsyms) > d->file_stat.st_size)
+		return (false);
 	d->strtab = d->file + swap32(cmd->stroff);
 	d->sym32 = d->file + swap32(cmd->symoff);
 	d->sym64 = d->file + swap32(cmd->symoff);
 	d->nsyms = swap32(cmd->nsyms);
 	d->strsize = swap32(cmd->strsize);
-	// ft_printf("addr: %llx", (void*)&cmd->nsyms - d->file);
+	return (true);
 }
 
 bool	parse_commands(t_data *d, struct load_command *cmd, int ncmds)
@@ -227,7 +238,10 @@ bool	parse_commands(t_data *d, struct load_command *cmd, int ncmds)
 		if (((void*)cmd + cmd->cmdsize) > (d->file + d->file_stat.st_size))
 			return (false);
 		if (cmd->cmd == LC_SYMTAB)
-			parse_symtab_command(d, (void*)cmd);
+		{
+			if (!parse_symtab_command(d, (void*)cmd))
+				return (false);
+		}
 		else if (cmd->cmd == LC_SEGMENT)
 		{
 			if (!parse_segment_command(d, (void*)cmd))
