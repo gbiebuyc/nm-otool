@@ -67,41 +67,36 @@ char	get_type_char(t_data *d)
 	char c;
 
 	c = ' ';
-	if ((d->sym_type & N_SECT) && d->sect_chars[d->sym_sectnum])
-		c = d->sect_chars[d->sym_sectnum];
-	else if ((d->sym_type & N_TYPE) == N_ABS)
+	if ((d->sym.n_type & N_SECT) && d->sect_chars[d->sym.n_sect])
+		c = d->sect_chars[d->sym.n_sect];
+	else if ((d->sym.n_type & N_TYPE) == N_ABS)
 		c = 'a';
-	else if ((d->sym_type & N_TYPE) == N_UNDF)
+	else if ((d->sym.n_type & N_TYPE) == N_UNDF)
 		c = 'u';
-	if (d->sym_type & N_EXT)
+	if (d->sym.n_type & N_EXT)
 		c = ft_toupper(c);
 	return (c);
 }
 
-int		parse_symbol(t_data *d, int i)
+bool	parse_symbol(t_data *d, int i)
 {
-	struct nlist	*sym32;
-	struct nlist_64	*sym64;
-
-	if (i >= d->nsyms)
-		return (0);
 	if (d->is_64bit)
 	{
-		sym64 = ((struct nlist_64*)d->symbols) + i;
-		d->sym_str = d->sym_strtab + swap32(sym64->n_un.n_strx);
-		d->sym_type = sym64->n_type;
-		d->sym_value = swap64(sym64->n_value);
-		d->sym_sectnum = sym64->n_sect;
+		d->sym = d->sym64[i];
+		d->sym.n_un.n_strx = swap32(d->sym.n_un.n_strx);
+		d->sym.n_value = swap64(d->sym.n_value);
 	}
 	else
 	{
-		sym32 = ((struct nlist*)d->symbols) + i;
-		d->sym_str = d->sym_strtab + swap32(sym32->n_un.n_strx);
-		d->sym_type = sym32->n_type;
-		d->sym_value = swap32(sym32->n_value);
-		d->sym_sectnum = sym32->n_sect;
+		d->sym.n_un.n_strx = swap32(d->sym32[i].n_un.n_strx);
+		d->sym.n_value = swap32(d->sym32[i].n_value);
+		d->sym.n_type = d->sym32[i].n_type;
+		d->sym.n_sect = d->sym32[i].n_sect;
 	}
-	return (1);
+	if (d->sym.n_un.n_strx > d->strsize)
+		return (false);
+	d->sym_str = d->strtab + d->sym.n_un.n_strx;
+	return (true);
 }
 
 void	print_symbols(t_data *d)
@@ -109,14 +104,15 @@ void	print_symbols(t_data *d)
 	int i;
 
 	i = -1;
-	while (parse_symbol(d, ++i))
+	while (++i < d->nsyms)
 	{
-		if (d->sym_type & N_STAB)
+		parse_symbol(d, i);
+		if (d->sym.n_type & N_STAB)
 			continue;
-		if ((d->sym_type & N_TYPE) == N_UNDF)
+		if ((d->sym.n_type & N_TYPE) == N_UNDF)
 			ft_printf("%*s", d->is_64bit ? 16 : 8, "");
 		else
-			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym_value);
+			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym.n_value);
 		// ft_printf(" %b %3d %3d", d->sym_type, d->sym_sectnum, d->sect_chars[d->sym_sectnum]);
 		ft_printf(" %c %s\n", get_type_char(d), d->sym_str);
 	}
@@ -124,24 +120,20 @@ void	print_symbols(t_data *d)
 
 void	swap_symbols(t_data *d, int i, int j)
 {
-	struct nlist	*sym32;
-	struct nlist_64	*sym64;
 	struct nlist	tmp32;
 	struct nlist_64	tmp64;
 
 	if (d->is_64bit)
 	{
-		sym64 = d->symbols;
-		tmp64 = sym64[i];
-		sym64[i] = sym64[j];
-		sym64[j] = tmp64;
+		tmp64 = d->sym64[i];
+		d->sym64[i] = d->sym64[j];
+		d->sym64[j] = tmp64;
 	}
 	else
 	{
-		sym32 = d->symbols;
-		tmp32 = sym32[i];
-		sym32[i] = sym32[j];
-		sym32[j] = tmp32;
+		tmp32 = d->sym32[i];
+		d->sym32[i] = d->sym32[j];
+		d->sym32[j] = tmp32;
 	}
 }
 
@@ -157,24 +149,22 @@ void	sort_symbols(t_data *d)
 		j = -1;
 		while (++j < d->nsyms - i - 1)
 		{
+	// ft_printf("yolo\n");
 			parse_symbol(d, j);
-			if (d->sym_type & N_STAB)
+	// ft_printf("yolo1\n");
+			if (d->sym.n_type & N_STAB)
+			{
+	// ft_printf("yolo2\n");
 				continue ;
+			}
+	// ft_printf("yolo22\n");
 			str = d->sym_str;
 			parse_symbol(d, j + 1);
+	// ft_printf("yolo3 %c %c\n", *str, *d->sym_str);
 			if (ft_strcmp(str, d->sym_str) > 0)
 				swap_symbols(d, j, j + 1);
 		}
 	}
-}
-
-void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
-{
-	if (d->symbols)
-		return ;
-	d->nsyms = swap32(cmd->nsyms);
-	d->symbols = d->file + swap32(cmd->symoff);
-	d->sym_strtab = d->file + swap32(cmd->stroff);
 }
 
 void	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
@@ -204,6 +194,15 @@ void	parse_segment_command(t_data *d, struct segment_command *cmd)
 void	parse_segment_command_64(t_data *d, struct segment_command_64 *cmd)
 {
 	parse_sections(d, (void*)(cmd + 1), swap32(cmd->nsects));
+}
+
+void	parse_symtab_command(t_data *d, struct symtab_command *cmd)
+{
+	d->strtab = d->file + swap32(cmd->stroff);
+	d->sym32 = d->file + swap32(cmd->symoff);
+	d->sym64 = d->file + swap32(cmd->symoff);
+	d->nsyms = swap32(cmd->nsyms);
+	d->strsize = swap32(cmd->strsize);
 }
 
 int parse_commands(t_data *d, struct load_command *cmd, int ncmds)

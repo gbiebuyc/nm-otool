@@ -12,14 +12,14 @@
 
 #include "nm_otool.h"
 
-bool	*is_big_endian()
+bool		*is_big_endian()
 {
 	static bool	is_big_endian = false;
 
 	return (&is_big_endian);
 }
 
-int16_t	swap16(int16_t n)
+uint16_t	swap16(uint16_t n)
 {
 	if (*is_big_endian() == false)
 		return (n);
@@ -27,7 +27,7 @@ int16_t	swap16(int16_t n)
 			((n & 0xff00) >> 8));
 }
 
-int32_t	swap32(int32_t n)
+uint32_t	swap32(uint32_t n)
 {
 	if (*is_big_endian() == false)
 		return (n);
@@ -37,7 +37,7 @@ int32_t	swap32(int32_t n)
 			((n & 0xff000000) >> 24));
 }
 
-int64_t	swap64(int64_t n)
+uint64_t	swap64(uint64_t n)
 {
 	if (*is_big_endian() == false)
 		return (n);

@@ -21,26 +21,25 @@
 # include <mach-o/loader.h>
 # include <mach-o/nlist.h>
 
-typedef struct		s_data
+typedef struct				s_data
 {
-	void            *file;
-	uint32_t		ncmds;
-	bool			is_64bit;
-	uint64_t		sym_value;
-	char			sym_type;
-	char			*sym_strtab;
-	char			*sym_str;
-	unsigned char	sym_sectnum;
-	uint32_t		nsyms;
-	void			*symbols;
-	size_t			i_sect;
-	char			sect_chars[256];
+	void            		*file;
+	uint32_t				ncmds;
+	uint32_t				nsyms;
+	bool					is_64bit;
+	size_t					i_sect;
+	char					sect_chars[256];
+	struct nlist_64			sym;
+	struct nlist			*sym32;
+	struct nlist_64			*sym64;
+	char					*strtab;
+	uint32_t				strsize;
+	char					*sym_str;
+}							t_data;
 
-}					t_data;
-
-bool				*is_big_endian();
-int16_t				swap16(int16_t n);
-int32_t				swap32(int32_t n);
-int64_t				swap64(int64_t n);
+bool						*is_big_endian();
+uint16_t					swap16(uint16_t n);
+uint32_t					swap32(uint32_t n);
+uint64_t					swap64(uint64_t n);
 
 #endif
