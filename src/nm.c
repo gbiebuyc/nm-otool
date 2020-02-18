@@ -268,6 +268,11 @@ bool	parse_header(t_data *d, struct mach_header *header)
 	else if (header->magic == MH_CIGAM_64)
 		d->is_64bit =
 			*is_big_endian() = true;
+	else if (header->magic == FAT_CIGAM)
+	{
+		d->file += 0x1000;
+		return(parse_header(d, d->file));
+	}
 	else
 		return (false);
 	d->ncmds = swap32(header->ncmds);

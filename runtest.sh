@@ -1,12 +1,17 @@
 #!/bin/bash
 
-
 if [ -n "$1" ] ; then
-	file="$1"
+	files="$1"
 else
-	file=./test_binaries/64_exe_medium
+	files=./test_binaries/*
 fi
-nm $file > out1
-./ft_nm $file > out2
-git diff --no-index out1 out2
+
+for f in $files
+do
+	echo "Testing: $f"
+	nm $f > out1 2>/dev/null
+	./ft_nm $f > out2 2>/dev/null
+	# git diff --no-index out1 out2
+	diff out1 out2 || break
+done
 rm out1 out2

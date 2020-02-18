@@ -20,6 +20,7 @@
 # include <sys/stat.h>
 # include <mach-o/loader.h>
 # include <mach-o/nlist.h>
+# include <mach-o/fat.h>
 
 typedef struct				s_data
 {
