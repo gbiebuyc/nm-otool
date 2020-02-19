@@ -28,7 +28,7 @@ typedef struct				s_data
 	void            		*file;
 	void            		*file_start;
 	struct stat				file_stat;
-	uint32_t				nsyms;
+	int64_t					nsyms;
 	bool					is_64bit;
 	size_t					i_sect;
 	char					sect_chars[256];
