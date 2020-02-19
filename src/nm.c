@@ -232,6 +232,8 @@ bool	parse_fat(t_data *d, struct fat_arch *arch, int narch)
 	while (narch--)
 	{
 		*is_big_endian() = true;
+		if (swap32(arch->offset) + swap32(arch->size) > d->file_stat.st_size)
+			return (false);
 		if (swap32(arch->cputype) == CPU_TYPE_X86_64)
 			narch = 0;
 		else
