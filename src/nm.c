@@ -224,29 +224,41 @@ char	*get_arch_name(cpu_type_t type, cpu_subtype_t subtype)
 
 bool	parse_fat(t_data *d, struct fat_arch *arch, int narch)
 {
-	void *file_start;
-
-	file_start = d->file;
-	*is_big_endian() = true;
-	narch = swap32(narch);
 	while (narch--)
 	{
 		*is_big_endian() = true;
-		if (swap32(arch->offset) + swap32(arch->size) > d->file_stat.st_size)
-			return (false);
-		if (swap32(arch->cputype) == CPU_TYPE_X86_64)
-			narch = 0;
-		else
-			ft_printf("\n%s (for architecture %s):\n", d->filename,
-				get_arch_name(swap32(arch->cputype), swap32(arch->cpusubtype)));
-		d->file = file_start + swap32(arch->offset);
+		ft_printf("\n%s (for architecture %s):\n", d->filename,
+			get_arch_name(swap32(arch->cputype), swap32(arch->cpusubtype)));
+		d->file = d->file_start + swap32(arch->offset);
 		d->i_sect = 0;
 		if (!parse_header(d, d->file, true))
 			return (false);
 		arch++;
 	}
-	d->file = file_start;
 	return (true);
+}
+
+bool	handle_fat(t_data *d, struct fat_arch *arch, int narch)
+{
+	struct fat_arch *arch2;
+	int				narch2;
+
+	*is_big_endian() = true;
+	narch = swap32(narch);
+	arch2 = arch;
+	narch2 = narch;
+	while (narch--)
+	{
+		if (swap32(arch->offset) + swap32(arch->size) > d->file_stat.st_size)
+			return (false);
+		if ((cpu_type_t)swap32(arch->cputype) == CPU_TYPE_X86_64)
+		{
+			d->file = d->file_start + swap32(arch->offset);
+			return (parse_header(d, d->file, true));
+		}
+		arch++;
+	}
+	return (parse_fat(d, arch2, narch2));
 }
 
 bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
@@ -263,7 +275,7 @@ bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
 		d->is_64bit =
 			*is_big_endian() = true;
 	else if (!inside_fat && header->magic == FAT_CIGAM)
-		return (parse_fat(d, d->file + 8, *((uint32_t*)(d->file) + 1)));
+		return (handle_fat(d, d->file + 8, *((uint32_t*)(d->file) + 1)));
 	else
 		return (false);
 	if (!parse_commands(d, d->file + sizeof_header(d), swap32(header->ncmds)) ||
@@ -289,6 +301,7 @@ int func(t_data *d, char **av)
 	d->file = mmap(0, d->file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_dprintf(STDERR_FILENO, "mmap error\n"));
+	d->file_start = d->file;
 	if (!parse_header(d, d->file, false))
 		return (ft_dprintf(STDERR_FILENO,
 			"Invalid or corrupted file: %s\n", d->filename));
