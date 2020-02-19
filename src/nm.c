@@ -27,8 +27,10 @@ char	get_type_char(t_data *d)
 		c = d->sect_chars[d->sym.n_sect];
 	else if ((d->sym.n_type & N_TYPE) == N_ABS)
 		c = 'a';
-	else if ((d->sym.n_type & N_TYPE) == N_UNDF)
+	else if ((d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
 		c = 'u';
+	else if ((d->sym.n_type & N_TYPE) == N_UNDF && d->sym.n_value)
+		c = 'C';
 	if (d->sym.n_type & N_EXT)
 		c = ft_toupper(c);
 	return (c);
@@ -50,8 +52,9 @@ bool	parse_symbol(t_data *d, int i)
 		d->sym.n_sect = d->sym32[i].n_sect;
 	}
 	if (d->sym.n_un.n_strx > d->strsize)
-		return (false);
-	d->sym_str = d->strtab + d->sym.n_un.n_strx;
+		d->sym_str = "bad string index";
+	else
+		d->sym_str = d->strtab + d->sym.n_un.n_strx;
 	return (true);
 }
 
@@ -65,7 +68,7 @@ void	print_symbols(t_data *d)
 		parse_symbol(d, i);
 		if (d->sym.n_type & N_STAB)
 			continue;
-		if ((d->sym.n_type & N_TYPE) == N_UNDF)
+		if ((d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
 			ft_printf("%*s", d->is_64bit ? 16 : 8, "");
 		else
 			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym.n_value);
