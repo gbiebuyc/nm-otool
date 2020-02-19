@@ -12,50 +12,6 @@
 
 #include "nm_otool.h"
 
-// void	parse_section(void *file, uint32_t nsects)
-// {
-// 	struct section_64	*section;
-// 	void				*ptr;
-
-// 	ptr = file + sizeof(struct mach_header_64);
-// 	while (nsects--)
-// 	{
-// 		section = (struct section_64*)ptr;
-// 		ft_printf("cmd size: %d\n", cmd->cmdsize);
-// 		ptr = (char*)ptr + cmd->cmdsize;
-// 	}
-// }
-
-// int		get_nsects(t_data *d, void *cmd)
-// {
-// 	int nsects;
-
-// 	nsects = d->is_64bit ? ((struct segment_command_64*)cmd)->nsects :
-// 		((struct segment_command*)cmd)->nsects;
-// 	return (d->is_big_endian ? NXSwapInt(nsects) : nsects);
-// }
-
-// char	*get_section_name(t_data *d, int needle)
-// {
-// 	struct load_command	*cmd;
-// 	int					i_sect;
-// 	int					ncmds;
-// 	int					nsects;
-
-// 	cmd = d->file + d->sizeof_header;
-// 	i_sect = 1;
-// 	ncmds = d->ncmds;
-// 	while (ncmds--)
-// 	{
-// 		nsects = get_nsects(d, cmd);
-// 		while (nsects--)
-// 		{
-// 			i_sect++;
-// 		}
-// 		cmd = (char*)cmd + cmd->cmdsize;
-// 	}
-// }
-
 size_t	sizeof_header(t_data *d)
 {
 	return (d->is_64bit ? sizeof(struct mach_header_64) :
@@ -257,8 +213,44 @@ bool	parse_commands(t_data *d, struct load_command *cmd, int ncmds)
 	return (true);
 }
 
-bool	parse_header(t_data *d, struct mach_header *header)
+char	*get_arch_name(cpu_type_t type, cpu_subtype_t subtype)
 {
+	if (type == CPU_TYPE_I386)
+		return ("i386");
+	if (type == CPU_TYPE_POWERPC && subtype != CPU_SUBTYPE_POWERPC_7400)
+		return ("ppc");
+	return ("");
+}
+
+bool	parse_fat(t_data *d, struct fat_arch *arch, int narch)
+{
+	void *file_start;
+
+	file_start = d->file;
+	*is_big_endian() = true;
+	narch = swap32(narch);
+	while (narch--)
+	{
+		*is_big_endian() = true;
+		if (swap32(arch->cputype) == CPU_TYPE_X86_64)
+			narch = 0;
+		else
+			ft_printf("\n%s (for architecture %s):\n", d->filename,
+				get_arch_name(swap32(arch->cputype), swap32(arch->cpusubtype)));
+		d->file = file_start + swap32(arch->offset);
+		d->i_sect = 0;
+		if (!parse_header(d, d->file, true))
+			return (false);
+		arch++;
+	}
+	d->file = file_start;
+	return (true);
+}
+
+bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
+{
+	*is_big_endian() = false;
+	d->is_64bit = false;
 	if (header->magic == MH_MAGIC)
 		d->is_64bit = false;
 	else if (header->magic == MH_MAGIC_64)
@@ -268,14 +260,14 @@ bool	parse_header(t_data *d, struct mach_header *header)
 	else if (header->magic == MH_CIGAM_64)
 		d->is_64bit =
 			*is_big_endian() = true;
-	else if (header->magic == FAT_CIGAM)
-	{
-		d->file += 0x1000;
-		return(parse_header(d, d->file));
-	}
+	else if (!inside_fat && header->magic == FAT_CIGAM)
+		return (parse_fat(d, d->file + 8, *((uint32_t*)(d->file) + 1)));
 	else
 		return (false);
-	d->ncmds = swap32(header->ncmds);
+	if (!parse_commands(d, d->file + sizeof_header(d), swap32(header->ncmds)) ||
+		!sort_symbols(d))
+		return (false);
+	print_symbols(d);
 	return (true);
 }
 
@@ -283,23 +275,21 @@ int func(t_data *d, char **av)
 {
 	int			fd;
 
-	if (!av[1])
-		av[1] = "a.out";
-	if ((fd = open(av[1], O_RDONLY)) < 0)
-		return (ft_dprintf(STDERR_FILENO, "open error: %s\n", av[1]));
+	d->filename = av[1];
+	if (!d->filename)
+		d->filename = "a.out";
+	if ((fd = open(d->filename, O_RDONLY)) < 0)
+		return (ft_dprintf(STDERR_FILENO, "open error: %s\n", d->filename));
 	if (fstat(fd, &d->file_stat) != 0)
-		return (ft_dprintf(STDERR_FILENO, "fstat error: %s\n", av[1]));
+		return (ft_dprintf(STDERR_FILENO, "fstat error: %s\n", d->filename));
 	if (d->file_stat.st_size == 0)
-		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", av[1]));
+		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", d->filename));
 	d->file = mmap(0, d->file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_dprintf(STDERR_FILENO, "mmap error\n"));
-	if (!parse_header(d, d->file))
-		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", av[1]));
-	if (!parse_commands(d, d->file + sizeof_header(d), d->ncmds) ||
-		!sort_symbols(d))
-		return (ft_dprintf(STDERR_FILENO, "Corrupted file: %s\n", av[1]));
-	print_symbols(d);
+	if (!parse_header(d, d->file, false))
+		return (ft_dprintf(STDERR_FILENO,
+			"Invalid or corrupted file: %s\n", d->filename));
 	return (0);
 }
 

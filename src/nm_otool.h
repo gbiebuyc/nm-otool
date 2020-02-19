@@ -24,9 +24,9 @@
 
 typedef struct				s_data
 {
+	char					*filename;
 	void            		*file;
 	struct stat				file_stat;
-	uint32_t				ncmds;
 	uint32_t				nsyms;
 	bool					is_64bit;
 	size_t					i_sect;
@@ -43,5 +43,7 @@ bool						*is_big_endian();
 uint16_t					swap16(uint16_t n);
 uint32_t					swap32(uint32_t n);
 uint64_t					swap64(uint64_t n);
+bool						parse_header(
+	t_data *d, struct mach_header *header, bool inside_fat);
 
 #endif
