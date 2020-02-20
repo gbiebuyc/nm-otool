@@ -255,21 +255,25 @@ bool	handle_fat(t_data *d, struct fat_arch *arch, int narch)
 {
 	struct fat_arch *arch2;
 	int				narch2;
+	struct fat_arch *match_host;
 
 	*is_big_endian() = true;
 	narch = swap32(narch);
 	arch2 = arch;
 	narch2 = narch;
+	match_host = NULL;
 	while (narch--)
 	{
 		if (swap32(arch->offset) + swap32(arch->size) > d->file_stat.st_size)
 			return (false);
 		if ((cpu_type_t)swap32(arch->cputype) == CPU_TYPE_X86_64)
-		{
-			d->file = d->file_start + swap32(arch->offset);
-			return (parse_header(d, d->file, true));
-		}
+			match_host = arch;
 		arch++;
+	}
+	if (match_host)
+	{
+		d->file = d->file_start + swap32(match_host->offset);
+		return (parse_header(d, d->file, true));
 	}
 	return (parse_fat(d, arch2, narch2));
 }
