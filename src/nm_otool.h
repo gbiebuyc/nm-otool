@@ -40,6 +40,7 @@ typedef struct				s_data
 	uint32_t				strsize;
 	char					*sym_str;
 	char					*sym_str2;
+	bool					print_filename;
 }							t_data;
 
 bool						*is_big_endian();
@@ -48,5 +49,6 @@ uint32_t					swap32(uint32_t n);
 uint64_t					swap64(uint64_t n);
 bool						parse_header(
 	t_data *d, struct mach_header *header, bool inside_fat);
+int	func(t_data *d, char *filename);
 
 #endif

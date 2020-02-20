@@ -10,19 +10,23 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME = ft_nm
-SRC = src/nm.c \
+SRC = src/common.c \
 	src/endianness.c
 OBJ = $(SRC:.c=.o)
 CFLAGS = -I ./libft -g # -Wall -Wextra -Werror
 LDFLAGS = -L ./libft -lft
 .PHONY: all clean fclean re
 
-all: $(NAME)
+all: libft/libft.a ft_nm ft_otool
 
-$(NAME): $(OBJ)
+libft/libft.a:
 	make -C ./libft
-	$(CC) -o $(NAME) $(OBJ) $(LDFLAGS)
+
+ft_nm: $(OBJ) src/nm.o
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+ft_otool: $(OBJ) src/otool.o
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 clean:
 	#make -C ./libft clean
@@ -31,6 +35,7 @@ clean:
 fclean:
 	#make -C ./libft fclean
 	rm -rf $(OBJ)
-	rm -rf $(NAME)
+	rm -rf ft_nm
+	rm -rf ft_otool
 
 re: fclean all
