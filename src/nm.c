@@ -317,9 +317,11 @@ int	func(t_data *d, char **av)
 	d->file_start = d->file;
 	if (!parse_header(d, d->file, false))
 	{
+		munmap(d->file, d->file_stat.st_size);
 		return (ft_dprintf(STDERR_FILENO,
 			"Invalid or corrupted file: %s\n", d->filename));
 	}
+	munmap(d->file, d->file_stat.st_size);
 	return (0);
 }
 
