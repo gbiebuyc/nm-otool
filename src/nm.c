@@ -37,29 +37,28 @@ char	get_type_char(t_data *d)
 		c = 'C';
 	if (d->sym.n_type & N_EXT)
 		c = ft_toupper(c);
-	// ft_printf(" %02x %02x %04x ", d->sym.n_type, d->sym.n_sect, d->sym.n_desc);
 	return (c);
 }
 
-bool	parse_symbol(t_data *d, int i)
+bool	parse_symbol(t_data *d, int i, struct nlist_64 *sym, char **str)
 {
 	if (d->is_64bit)
 	{
-		d->sym = d->sym64[i];
-		d->sym.n_un.n_strx = swap32(d->sym.n_un.n_strx);
-		d->sym.n_value = swap64(d->sym.n_value);
+		*sym = d->sym64[i];
+		sym->n_un.n_strx = swap32(sym->n_un.n_strx);
+		sym->n_value = swap64(sym->n_value);
 	}
 	else
 	{
-		d->sym.n_un.n_strx = swap32(d->sym32[i].n_un.n_strx);
-		d->sym.n_value = swap32(d->sym32[i].n_value);
-		d->sym.n_type = d->sym32[i].n_type;
-		d->sym.n_sect = d->sym32[i].n_sect;
+		sym->n_un.n_strx = swap32(d->sym32[i].n_un.n_strx);
+		sym->n_value = swap32(d->sym32[i].n_value);
+		sym->n_type = d->sym32[i].n_type;
+		sym->n_sect = d->sym32[i].n_sect;
 	}
-	if (d->sym.n_un.n_strx > d->strsize)
-		d->sym_str = "bad string index";
+	if (sym->n_un.n_strx > d->strsize)
+		*str = "bad string index";
 	else
-		d->sym_str = d->strtab + d->sym.n_un.n_strx;
+		*str = d->strtab + sym->n_un.n_strx;
 	return (true);
 }
 
@@ -70,14 +69,14 @@ void	print_symbols(t_data *d)
 	i = -1;
 	while (++i < d->nsyms)
 	{
-		parse_symbol(d, i);
+		parse_symbol(d, i, &d->sym, &d->sym_str);
 		if (d->sym.n_type & N_STAB)
 			continue;
-		if (d->sym.n_type && (d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
+		if (d->sym.n_type &&
+				(d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
 			ft_printf("%*s", d->is_64bit ? 16 : 8, "");
 		else
 			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym.n_value);
-		// ft_printf(" %b %3d %3d", d->sym_type, d->sym_sectnum, d->sect_chars[d->sym_sectnum]);
 		ft_printf(" %c %s\n", get_type_char(d), d->sym_str);
 	}
 }
@@ -105,27 +104,22 @@ bool	sort_symbols(t_data *d)
 {
 	int		i;
 	int		j;
-	char	*str;
 	int		ret;
-	uint64_t	val;
 
 	i = -1;
-	while(++i < d->nsyms - 1)
+	while (++i < d->nsyms - 1)
 	{
 		j = -1;
 		while (++j < d->nsyms - i - 1)
 		{
-			if (!parse_symbol(d, j))
+			if (!parse_symbol(d, j, &d->sym, &d->sym_str))
 				return (false);
 			if (d->sym.n_type & N_STAB)
 				continue ;
-			str = d->sym_str;
-			val = d->sym.n_value;
-			if (!parse_symbol(d, j + 1))
+			if (!parse_symbol(d, j + 1, &d->sym2, &d->sym_str2))
 				return (false);
-			if ((ret = ft_strcmp(str, d->sym_str)) > 0)
-				swap_symbols(d, j, j + 1);
-			else if (ret == 0 && val > d->sym.n_value)
+			if ((ret = ft_strcmp(d->sym_str, d->sym_str2)) > 0 ||
+				(ret == 0 && d->sym.n_value > d->sym2.n_value))
 				swap_symbols(d, j, j + 1);
 		}
 	}
@@ -137,14 +131,16 @@ bool	check_section_valid(t_data *d,
 {
 	if (d->is_64bit)
 	{
-		if (swap32(sect64->offset) + swap64(sect64->size) > d->file_stat.st_size)
+		if (swap32(sect64->offset) +
+			swap64(sect64->size) > d->file_stat.st_size)
 			return (false);
 		if ((void*)(sect64 + 1) >= d->file + d->file_stat.st_size)
 			return (false);
 	}
 	else
 	{
-		if (swap32(sect32->offset) + swap32(sect32->size) > d->file_stat.st_size)
+		if (swap32(sect32->offset) +
+			swap32(sect32->size) > d->file_stat.st_size)
 			return (false);
 		if ((void*)(sect64 + 1) >= d->file + d->file_stat.st_size)
 			return (false);
@@ -167,7 +163,6 @@ bool	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 			d->sect_chars[d->i_sect] = 'b';
 		else
 			d->sect_chars[d->i_sect] = 's';
-		// ft_printf("section %d, %d\n", d->i_sect, d->sect_chars[d->i_sect]);
 		sect = (void*)sect + (d->is_64bit ? sizeof(struct section_64) :
 			sizeof(struct section));
 	}
@@ -302,7 +297,7 @@ bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
 	return (true);
 }
 
-int func(t_data *d, char **av)
+int	func(t_data *d, char **av)
 {
 	int			fd;
 
@@ -315,21 +310,25 @@ int func(t_data *d, char **av)
 		return (ft_dprintf(STDERR_FILENO, "fstat error: %s\n", d->filename));
 	if (d->file_stat.st_size == 0)
 		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", d->filename));
-	d->file = mmap(0, d->file_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+	d->file = mmap(0, d->file_stat.st_size,
+		PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (d->file == MAP_FAILED)
 		return (ft_dprintf(STDERR_FILENO, "mmap error\n"));
 	d->file_start = d->file;
 	if (!parse_header(d, d->file, false))
+	{
 		return (ft_dprintf(STDERR_FILENO,
 			"Invalid or corrupted file: %s\n", d->filename));
+	}
 	return (0);
 }
 
-
-int main(int ac, char **av)
+int	main(int ac, char **av)
 {
+	t_data d;
+
 	(void)ac;
-	t_data d = {0};
+	d = (t_data){0};
 	if (func(&d, av))
 		return (EXIT_FAILURE);
 	return (EXIT_SUCCESS);

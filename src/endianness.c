@@ -12,7 +12,7 @@
 
 #include "nm_otool.h"
 
-bool		*is_big_endian()
+bool		*is_big_endian(void)
 {
 	static bool	is_big_endian = false;
 

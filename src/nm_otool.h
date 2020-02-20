@@ -25,19 +25,21 @@
 typedef struct				s_data
 {
 	char					*filename;
-	void            		*file;
-	void            		*file_start;
+	void					*file;
+	void					*file_start;
 	struct stat				file_stat;
 	int64_t					nsyms;
 	bool					is_64bit;
 	size_t					i_sect;
 	char					sect_chars[256];
 	struct nlist_64			sym;
+	struct nlist_64			sym2;
 	struct nlist			*sym32;
 	struct nlist_64			*sym64;
 	char					*strtab;
 	uint32_t				strsize;
 	char					*sym_str;
+	char					*sym_str2;
 }							t_data;
 
 bool						*is_big_endian();
