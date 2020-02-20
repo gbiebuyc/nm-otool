@@ -1,17 +1,26 @@
 #!/bin/bash
 
-if [ -n "$1" ] ; then
-	files="$1"
-else
-	files=./test_binaries/*
-fi
+exit_script () {
+	rm out1 out2
+	exit
+}
 
-for f in $files
-do
-	echo "Testing: $f"
-	nm $f > out1 2>/dev/null
-	./ft_nm $f > out2 2>/dev/null
-	git diff --no-index --exit-code out1 out2 || break
-	# diff out1 out2 || break
-done
-rm out1 out2
+assert_equal () {
+	echo "Testing:" $1
+	nm $1 > out1 2>/dev/null
+	./ft_nm $1 > out2 2>/dev/null
+	git diff --no-index --exit-code out1 out2 || exit_script
+}
+
+make
+if [ -n "$1" ] ; then
+	assert_equal "$1"
+	exit_script
+fi
+files=./test_binaries/*
+for f in $files; do assert_equal $f; done
+assert_equal ""
+assert_equal "I don't exist ./test_binaries/a"
+assert_equal "$files"
+echo "All tests passed."
+exit_script
