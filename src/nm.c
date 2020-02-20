@@ -22,17 +22,22 @@ char	get_type_char(t_data *d)
 {
 	char c;
 
-	c = ' ';
-	if ((d->sym.n_type & N_SECT) && d->sect_chars[d->sym.n_sect])
-		c = d->sect_chars[d->sym.n_sect];
+	c = '?';
+	if (!d->sym.n_type)
+		c = '?';
 	else if ((d->sym.n_type & N_TYPE) == N_ABS)
 		c = 'a';
+	else if ((d->sym.n_type & N_TYPE) == N_INDR)
+		c = 'i';
+	else if ((d->sym.n_type & N_SECT) && d->sect_chars[d->sym.n_sect])
+		c = d->sect_chars[d->sym.n_sect];
 	else if ((d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
 		c = 'u';
 	else if ((d->sym.n_type & N_TYPE) == N_UNDF && d->sym.n_value)
 		c = 'C';
 	if (d->sym.n_type & N_EXT)
 		c = ft_toupper(c);
+	// ft_printf(" %02x %02x %04x ", d->sym.n_type, d->sym.n_sect, d->sym.n_desc);
 	return (c);
 }
 
@@ -68,7 +73,7 @@ void	print_symbols(t_data *d)
 		parse_symbol(d, i);
 		if (d->sym.n_type & N_STAB)
 			continue;
-		if ((d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
+		if (d->sym.n_type && (d->sym.n_type & N_TYPE) == N_UNDF && !d->sym.n_value)
 			ft_printf("%*s", d->is_64bit ? 16 : 8, "");
 		else
 			ft_printf("%0*llx", d->is_64bit ? 16 : 8, d->sym.n_value);
@@ -101,6 +106,8 @@ bool	sort_symbols(t_data *d)
 	int		i;
 	int		j;
 	char	*str;
+	int		ret;
+	uint64_t	val;
 
 	i = -1;
 	while(++i < d->nsyms - 1)
@@ -113,9 +120,12 @@ bool	sort_symbols(t_data *d)
 			if (d->sym.n_type & N_STAB)
 				continue ;
 			str = d->sym_str;
+			val = d->sym.n_value;
 			if (!parse_symbol(d, j + 1))
 				return (false);
-			if (ft_strcmp(str, d->sym_str) > 0)
+			if ((ret = ft_strcmp(str, d->sym_str)) > 0)
+				swap_symbols(d, j, j + 1);
+			else if (ret == 0 && val > d->sym.n_value)
 				swap_symbols(d, j, j + 1);
 		}
 	}
