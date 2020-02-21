@@ -10,6 +10,10 @@ assert_equal () {
 	nm $1 > out1 2>/dev/null
 	./ft_nm $1 > out2 2>/dev/null
 	git diff --no-index --exit-code out1 out2 || exit_script
+	echo "Testing: otool" $1
+	otool -t $1 > out1 2>/dev/null
+	./ft_otool $1 > out2 2>/dev/null
+	git diff --no-index --exit-code out1 out2 || exit_script
 }
 
 make

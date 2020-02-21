@@ -14,5 +14,17 @@
 
 int	main(int ac, char **av)
 {
+	t_data	d;
+	int		i;
 
+	d = (t_data){0};
+	d.is_otool = true;
+	d.otool_display_arch = false;
+	if (ac == 1)
+		av[ac++] = "a.out";
+	if (ac > 2)
+		d.print_filename = true;
+	i = 1;
+	while (i < ac)
+		func(&d, av[i++]);
 }

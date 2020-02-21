@@ -154,6 +154,23 @@ bool	check_section_valid(t_data *d,
 	return (true);
 }
 
+void	parse_text_section(t_data *d,
+			struct section *sect32, struct section_64 *sect64)
+{
+	if (d->is_64bit)
+	{
+		d->text_section_vaddr = swap64(sect64->addr);
+		d->text_section_size = swap64(sect64->size);
+		d->text_section_addr = d->file + swap32(sect64->offset);
+	}
+	else
+	{
+		d->text_section_vaddr = swap32(sect32->addr);
+		d->text_section_size = swap32(sect32->size);
+		d->text_section_addr = d->file + swap32(sect32->offset);
+	}
+}
+
 bool	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 {
 	while (nsects--)
@@ -162,7 +179,10 @@ bool	parse_sections(t_data *d, struct section *sect, uint32_t nsects)
 		if (!check_section_valid(d, sect, (void*)sect))
 			return (false);
 		if (ft_strcmp(sect->sectname, SECT_TEXT) == 0)
+		{
 			d->sect_chars[d->i_sect] = 't';
+			parse_text_section(d, sect, (void*)sect);
+		}
 		else if (ft_strcmp(sect->sectname, SECT_DATA) == 0)
 			d->sect_chars[d->i_sect] = 'd';
 		else if (ft_strcmp(sect->sectname, SECT_BSS) == 0)
@@ -228,22 +248,46 @@ bool	parse_commands(t_data *d, struct load_command *cmd, int ncmds)
 	return (true);
 }
 
-char	*get_arch_name(cpu_type_t type, cpu_subtype_t subtype)
+char	*get_arch_name(t_data *d, struct fat_arch *arch)
 {
-	if (type == CPU_TYPE_I386)
+	if (arch->cputype == CPU_TYPE_I386)
 		return ("i386");
-	if (type == CPU_TYPE_POWERPC && subtype != CPU_SUBTYPE_POWERPC_7400)
+	if (arch->cputype == CPU_TYPE_POWERPC &&
+		arch->cpusubtype != CPU_SUBTYPE_POWERPC_7400)
+	{
+		d->otool_hex_4_columns = true;
 		return ("ppc");
+	}
+	if (d->is_otool)
+	{
+		d->otool_hex_4_columns = true;
+		return (NULL);
+	}
 	return ("");
+}
+
+void	print_filename_and_arch(t_data *d, struct fat_arch *arch)
+{
+	if (arch && get_arch_name(d, arch))
+		ft_printf(d->is_otool ?
+			"%s (architecture %s):\n" :
+			"\n%s (for architecture %s):\n",
+			d->filename, get_arch_name(d, arch));
+	else
+		ft_printf("%s:\n", d->filename);
+	if (d->is_otool)
+		ft_printf("Contents of (__TEXT,__text) section\n");
 }
 
 bool	parse_fat(t_data *d, struct fat_arch *arch, int narch)
 {
+	d->otool_display_arch = true;
 	while (narch--)
 	{
 		*is_big_endian() = true;
-		ft_printf("\n%s (for architecture %s):\n", d->filename,
-			get_arch_name(swap32(arch->cputype), swap32(arch->cpusubtype)));
+		arch->cputype = swap32(arch->cputype);
+		arch->cpusubtype = swap32(arch->cpusubtype);
+		print_filename_and_arch(d, arch);
 		d->file = d->file_start + swap32(arch->offset);
 		d->i_sect = 0;
 		if (!parse_header(d, d->file, true))
@@ -268,7 +312,7 @@ bool	handle_fat(t_data *d, struct fat_arch *arch, int narch)
 	{
 		if (swap32(arch->offset) + swap32(arch->size) > d->file_stat.st_size)
 			return (false);
-		if ((cpu_type_t)swap32(arch->cputype) == CPU_TYPE_X86_64)
+		if (!match_host && (cpu_type_t)swap32(arch->cputype) == CPU_TYPE_X86_64)
 			match_host = arch;
 		arch++;
 	}
@@ -278,6 +322,29 @@ bool	handle_fat(t_data *d, struct fat_arch *arch, int narch)
 		return (parse_header(d, d->file, true));
 	}
 	return (parse_fat(d, arch2, narch2));
+}
+
+void	print_text_section(t_data *d)
+{
+	size_t i;
+
+	i = 0;
+	while (i < d->text_section_size)
+	{
+		ft_printf("%0*llx\t", d->is_64bit ? 16 : 8, d->text_section_vaddr + i);
+		ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
+		if (!d->otool_hex_4_columns)
+			ft_putchar(' ');
+		while (++i %16 && i < d->text_section_size)
+		{
+			ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
+			if (!d->otool_hex_4_columns ||
+				(d->otool_hex_4_columns && i % 4 == 3))
+				ft_putchar(' ');
+		}
+		ft_putchar('\n');
+	}
+	d->otool_hex_4_columns = false;
 }
 
 bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
@@ -300,9 +367,13 @@ bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
 	if (!parse_commands(d, d->file + sizeof_header(d), swap32(header->ncmds)) ||
 		!sort_symbols(d))
 		return (false);
-	if (d->print_filename && !inside_fat)
-		ft_printf("\n%s:\n", d->filename);
-	print_symbols(d);
+	if ((d->is_otool && !d->otool_display_arch) ||
+			(d->print_filename && !inside_fat))
+		print_filename_and_arch(d, NULL);
+	if (d->is_otool)
+		print_text_section(d);
+	else
+		print_symbols(d);
 	return (true);
 }
 
