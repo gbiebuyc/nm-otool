@@ -254,15 +254,9 @@ char	*get_arch_name(t_data *d, struct fat_arch *arch)
 		return ("i386");
 	if (arch->cputype == CPU_TYPE_POWERPC &&
 		arch->cpusubtype != CPU_SUBTYPE_POWERPC_7400)
-	{
-		d->otool_hex_4_columns = true;
 		return ("ppc");
-	}
 	if (d->is_otool)
-	{
-		d->otool_hex_4_columns = true;
 		return (NULL);
-	}
 	return ("");
 }
 
@@ -333,18 +327,17 @@ void	print_text_section(t_data *d)
 	{
 		ft_printf("%0*llx\t", d->is_64bit ? 16 : 8, d->text_section_vaddr + i);
 		ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
-		if (!d->otool_hex_4_columns)
+		if (!*is_big_endian())
 			ft_putchar(' ');
 		while (++i %16 && i < d->text_section_size)
 		{
 			ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
-			if (!d->otool_hex_4_columns ||
-				(d->otool_hex_4_columns && i % 4 == 3))
+			if (!*is_big_endian() ||
+				(*is_big_endian() && i % 4 == 3))
 				ft_putchar(' ');
 		}
 		ft_putchar('\n');
 	}
-	d->otool_hex_4_columns = false;
 }
 
 bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
@@ -363,10 +356,11 @@ bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
 	else if (!inside_fat && header->magic == FAT_CIGAM)
 		return (handle_fat(d, d->file + 8, *((uint32_t*)(d->file) + 1)));
 	else
-		return (false);
+		return (ft_dprintf(d->is_otool ? STDOUT_FILENO : STDERR_FILENO,
+			"%s: is not an object file\n", d->filename));
 	if (!parse_commands(d, d->file + sizeof_header(d), swap32(header->ncmds)) ||
 		!sort_symbols(d))
-		return (false);
+		return (ft_dprintf(2, "Invalid or corrupted file: %s\n", d->filename));
 	if ((d->is_otool && !d->otool_display_arch) ||
 			(d->print_filename && !inside_fat))
 		print_filename_and_arch(d, NULL);
@@ -386,6 +380,8 @@ int	func(t_data *d, char *filename)
 		return (ft_dprintf(STDERR_FILENO, "open error: %s\n", d->filename));
 	if (fstat(fd, &d->file_stat) != 0)
 		return (ft_dprintf(STDERR_FILENO, "fstat error: %s\n", d->filename));
+	if (d->file_stat.st_size == 0 && d->is_otool)
+		return (ft_printf("%s: is not an object file\n", d->filename));
 	if (d->file_stat.st_size == 0)
 		return (ft_dprintf(STDERR_FILENO, "Invalid file: %s\n", d->filename));
 	d->file = mmap(0, d->file_stat.st_size,
@@ -396,11 +392,7 @@ int	func(t_data *d, char *filename)
 	d->i_sect = 0;
 	d->nsyms = 0;
 	if (!parse_header(d, d->file, false))
-	{
-		munmap(d->file, d->file_stat.st_size);
-		return (ft_dprintf(STDERR_FILENO,
-			"Invalid or corrupted file: %s\n", d->filename));
-	}
+		return (munmap(d->file, d->file_stat.st_size));
 	munmap(d->file, d->file_stat.st_size);
 	return (0);
 }

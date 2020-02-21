@@ -46,7 +46,6 @@ typedef struct				s_data
 	void					*text_section_addr;
 	size_t					text_section_vaddr;
 	size_t					text_section_size;
-	bool					otool_hex_4_columns;
 }							t_data;
 
 bool						*is_big_endian();
