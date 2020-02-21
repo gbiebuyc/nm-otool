@@ -6,7 +6,7 @@ exit_script () {
 }
 
 assert_equal () {
-	echo "Testing:" $1
+	echo "Testing: nm" $1
 	nm $1 > out1 2>/dev/null
 	./ft_nm $1 > out2 2>/dev/null
 	git diff --no-index --exit-code out1 out2 || exit_script

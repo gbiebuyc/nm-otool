@@ -61,7 +61,12 @@ bool	parse_symbol(t_data *d, int i, struct nlist_64 *sym, char **str)
 		sym->n_type = d->sym32[i].n_type;
 		sym->n_sect = d->sym32[i].n_sect;
 	}
-	if (sym->n_un.n_strx > d->strsize)
+	if (d->is_otool && sym->n_un.n_strx > d->strsize)
+	{
+		ft_printf("%s:\n", d->filename);
+		return (false);
+	}
+	else if (sym->n_un.n_strx > d->strsize)
 		*str = "bad string index";
 	else
 		*str = d->strtab + sym->n_un.n_strx;
@@ -268,7 +273,7 @@ void	print_filename_and_arch(t_data *d, struct fat_arch *arch)
 			"\n%s (for architecture %s):\n",
 			d->filename, get_arch_name(d, arch));
 	else
-		ft_printf("%s:\n", d->filename);
+		ft_printf(d->is_otool ? "%s:\n" : "\n%s:\n", d->filename);
 	if (d->is_otool)
 		ft_printf("Contents of (__TEXT,__text) section\n");
 }
@@ -356,11 +361,11 @@ bool	parse_header(t_data *d, struct mach_header *header, bool inside_fat)
 	else if (!inside_fat && header->magic == FAT_CIGAM)
 		return (handle_fat(d, d->file + 8, *((uint32_t*)(d->file) + 1)));
 	else
-		return (ft_dprintf(d->is_otool ? STDOUT_FILENO : STDERR_FILENO,
+		return (!ft_dprintf(d->is_otool ? STDOUT_FILENO : STDERR_FILENO,
 			"%s: is not an object file\n", d->filename));
 	if (!parse_commands(d, d->file + sizeof_header(d), swap32(header->ncmds)) ||
 		!sort_symbols(d))
-		return (ft_dprintf(2, "Invalid or corrupted file: %s\n", d->filename));
+		return (!ft_dprintf(2, "Invalid or corrupted file: %s\n", d->filename));
 	if ((d->is_otool && !d->otool_display_arch) ||
 			(d->print_filename && !inside_fat))
 		print_filename_and_arch(d, NULL);
@@ -392,7 +397,7 @@ int	func(t_data *d, char *filename)
 	d->i_sect = 0;
 	d->nsyms = 0;
 	if (!parse_header(d, d->file, false))
-		return (munmap(d->file, d->file_stat.st_size));
+		return (munmap(d->file, d->file_stat.st_size) + 42);
 	munmap(d->file, d->file_stat.st_size);
 	return (0);
 }

@@ -26,5 +26,6 @@ int	main(int ac, char **av)
 		d.print_filename = true;
 	i = 1;
 	while (i < ac)
-		func(&d, av[i++]);
+		if (func(&d, av[i++]) != 0)
+			break ;
 }
