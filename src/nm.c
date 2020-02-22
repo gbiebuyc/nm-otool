@@ -17,12 +17,12 @@ int	main(int ac, char **av)
 	t_data	d;
 	int		i;
 
-	d = (t_data){0};
+	ft_memset(&d, 0, sizeof(t_data));
 	if (ac == 1)
 		av[ac++] = "a.out";
 	if (ac > 2)
 		d.print_filename = true;
 	i = 1;
 	while (i < ac)
-		func(&d, av[i++]);
+		main2(&d, av[i++]);
 }

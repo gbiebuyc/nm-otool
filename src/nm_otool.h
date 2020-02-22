@@ -14,7 +14,6 @@
 # define NM_OTOOL_H
 
 # include <libft.h>
-# include <stddef.h>
 # include <sys/mman.h>
 # include <fcntl.h>
 # include <sys/stat.h>
@@ -54,6 +53,21 @@ uint32_t					swap32(uint32_t n);
 uint64_t					swap64(uint64_t n);
 bool						parse_header(
 	t_data *d, struct mach_header *header, bool inside_fat);
-int	func(t_data *d, char *filename);
+char						get_type_char(t_data *d);
+void						print_symbols(t_data *d);
+bool						sort_symbols(t_data *d);
+bool						parse_header(
+	t_data *d, struct mach_header *header, bool inside_fat);
+bool						parse_sections(
+	t_data *d, struct section *sect, uint32_t nsects);
+bool						parse_commands(
+	t_data *d, struct load_command *cmd, int ncmds);
+void						print_text_section(t_data *d);
+void						print_filename_and_arch(
+	t_data *d, struct fat_arch *arch);
+bool						handle_fat(
+	t_data *d, struct fat_arch *arch, int narch);
+int							main2(t_data *d, char *filename);
+size_t						sizeof_symbol(t_data *d);
 
 #endif

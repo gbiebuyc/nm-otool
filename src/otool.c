@@ -17,7 +17,7 @@ int	main(int ac, char **av)
 	t_data	d;
 	int		i;
 
-	d = (t_data){0};
+	ft_memset(&d, 0, sizeof(t_data));
 	d.is_otool = true;
 	d.otool_display_arch = false;
 	if (ac == 1)
@@ -26,6 +26,6 @@ int	main(int ac, char **av)
 		d.print_filename = true;
 	i = 1;
 	while (i < ac)
-		if (func(&d, av[i++]) != 0)
+		if (main2(&d, av[i++]) != 0)
 			break ;
 }
