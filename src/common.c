@@ -323,25 +323,39 @@ bool	handle_fat(t_data *d, struct fat_arch *arch, int narch)
 	return (parse_fat(d, arch2, narch2));
 }
 
+void	put_hex_fast(uint64_t num, int bits, char *line, int *linepos)
+{
+	while ((bits -= 4) >= 0)
+		line[(*linepos)++] = "0123456789abcdef"[((num >> bits) & 0xf)];
+}
+
 void	print_text_section(t_data *d)
 {
-	size_t i;
+	size_t	i;
+	char	line[80];
+	int		linepos;
 
+	linepos = 0;
 	i = 0;
 	while (i < d->text_section_size)
 	{
-		ft_printf("%0*llx\t", d->is_64bit ? 16 : 8, d->text_section_vaddr + i);
-		ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
+		put_hex_fast(d->text_section_vaddr + i,
+			d->is_64bit ? 64 : 32, line, &linepos);
+		line[linepos++] = '\t';
+		put_hex_fast(((uint8_t*)d->text_section_addr)[i], 8, line, &linepos);
 		if (!*is_big_endian())
-			ft_putchar(' ');
+			line[linepos++] = ' ';
 		while (++i %16 && i < d->text_section_size)
 		{
-			ft_printf("%02x", ((uint8_t*)d->text_section_addr)[i]);
+			put_hex_fast(((uint8_t*)d->text_section_addr)[i],
+				8, line, &linepos);
 			if (!*is_big_endian() ||
 				(*is_big_endian() && i % 4 == 3))
-				ft_putchar(' ');
+				line[linepos++] = ' ';
 		}
-		ft_putchar('\n');
+		line[linepos++] = '\n';
+		write(STDOUT_FILENO, line, linepos);
+		linepos = 0;
 	}
 }
 
