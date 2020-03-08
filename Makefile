@@ -10,39 +10,45 @@
 #                                                                              #
 # **************************************************************************** #
 
-SRC = src/main2.c \
-	src/get_type_char.c \
-	src/symbols.c \
-	src/parse_header.c \
-	src/parse_sections.c \
-	src/parse_commands.c \
-	src/parse_fat.c \
-	src/print_text_section.c \
-	src/print_filename.c \
-	src/endianness.c
-OBJ = $(SRC:.c=.o)
+SRC = main2.c \
+	get_type_char.c \
+	symbols.c \
+	parse_header.c \
+	parse_sections.c \
+	parse_commands.c \
+	parse_fat.c \
+	print_text_section.c \
+	print_filename.c \
+	endianness.c
+OBJ = $(addprefix obj/, $(SRC:.c=.o))
 CFLAGS = -I ./libft -Wall -Wextra -Werror
 LDFLAGS = -L ./libft -lft
 .PHONY: all clean fclean re
 
-all: libft/libft.a ft_nm ft_otool
+all: libft/libft.a obj/ ft_nm ft_otool
 
 libft/libft.a:
 	make -C ./libft
 
-ft_nm: $(OBJ) src/nm.o
+obj/:
+	mkdir -p obj/
+
+obj/%.o: src/%.c
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+ft_nm: $(OBJ) obj/nm.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-ft_otool: $(OBJ) src/otool.o
+ft_otool: $(OBJ) obj/otool.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 clean:
 	make -C ./libft clean
-	rm -rf $(OBJ)
+	rm -rf obj/
 
 fclean:
 	make -C ./libft fclean
-	rm -rf $(OBJ) src/nm.o src/otool.o
+	rm -rf obj/
 	rm -rf ft_nm
 	rm -rf ft_otool
 
